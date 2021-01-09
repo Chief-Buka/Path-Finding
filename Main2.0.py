@@ -20,9 +20,9 @@ class Wall():
         return(f'({self.row}, {self.col})')
 
 def appStarted(app):
-    app.cols = 10
-    app.rows = 5
-    app.filledCells = set()
+    app.cols = 20
+    app.rows = 10
+    app.keyCells = set()
     app.fill="black"
     app.bottomMargin = 100
     app.buttons = ["DFS", "BFS", "GBFS", "A*"]
@@ -31,6 +31,8 @@ def appStarted(app):
     app.removedCell = False
     app.walls = []
     app.mazeWalls = []
+    app.pathCells = set()
+    app.exploredCells = set()
     '''app.dir = [(-1,-1), (0, -1), (1, -1),
                 (-1, 0), (0, 0), (1, 0),
                 (-1, 1), (0, 1), (1, 1)]'''
@@ -45,17 +47,17 @@ def keyPressed(app, event):
         app.fill = "green"
     elif event.key == 'Enter':
         BFS(app)
+    elif event.key == "Tab":
+        DFS(app)
     elif event.key == 's':
-        app.filledCells = set()
+        app.exploredCells = set()
+        app.pathCells = set()
     elif event.key == 'p':
         generateMaze(app)
 
-def generateMaze(app):
-    pass
-
 def BFS(app):
         app.explored = set()
-        app.exploredStates = set()
+        exploredStates = set()
         frontier = Queue()
         frontier.add(app.startNode)
 
@@ -70,37 +72,73 @@ def BFS(app):
             else:
                 # Add node to explored set
                 app.explored.add(currNode)
-                app.exploredStates.add(currNode.state)
+                exploredStates.add(currNode.state)
                 # Expand the node
                 random.shuffle(app.dir)
                 for direction in app.dir:
                     newCol = direction[1]+currNode.state[1]
                     newRow = direction[0]+currNode.state[0]
                     newState = (newRow, newCol)
-                    if(((newRow >= 0) and (newRow < app.rows) and (newCol >= 0) and (newCol < app.cols)) and
-                       (newState not in app.exploredStates) and (newState not in app.walls) and 
-                       not(frontier.containsState(newState))):
-                       app.fill = "black"
+                    if((not frontier.containsState(newState)) and (newState not in exploredStates) and
+                        (newRow >= 0 and newRow < app.rows) and (newCol >= 0 and newCol < app.cols) and 
+                        (newState not in app.walls)):
+                       app.fill = "pink"
                        cell = Cell(app, newRow, newCol)
-                       addNode = Node(newState, currNode.state, direction, cell)
-                       frontier.add(addNode)
+                       app.exploredCells.add(cell)
+                       neighborNode = Node(newState, currNode.state, direction)
+                       frontier.add(neighborNode)
         return None
+
+def DFS(app):
+    app.explored = set()
+    exploredStates = set()
+    frontier = Stack()
+    frontier.add(app.startNode)
+
+    while(not frontier.isEmpty()):
+        # Remove node from frontier
+        currNode = frontier.remove()
+
+        # If current node is goal return path
+        if(currNode.state == app.goalState):
+            constructPath(app, currNode)
+            return None
+        else:
+            # Add node to explored set
+            app.explored.add(currNode)
+            exploredStates.add(currNode.state)
+            # Expand the node
+            random.shuffle(app.dir)
+            for direction in app.dir:
+                newCol = direction[1]+currNode.state[1]
+                newRow = direction[0]+currNode.state[0]
+                newState = (newRow, newCol)
+                if((not frontier.containsState(newState)) and (newState not in exploredStates) and
+                    (newRow >= 0 and newRow < app.rows) and (newCol >= 0 and newCol < app.cols) and 
+                    (newState not in app.walls)):
+                    app.fill = "pink"
+                    cell = Cell(app, newRow, newCol)
+                    app.exploredCells.add(cell)
+                    neighborNode = Node(newState, currNode.state, direction)
+                    frontier.add(neighborNode)
+    return None
 
 def constructPath(app, goalNode):
     app.path = []
     currNode = goalNode
     while(currNode.parent != None):
+        print(currNode)
         app.path.append((currNode.state))
         for node in app.explored:
             if (node.state == currNode.parent):
+                if (node.state != app.startNode.state):
+                    app.fill = "black"
+                    cell = Cell(app, node.state[0], node.state[1])
+                    app.pathCells.add(cell)  
                 currNode = node
                 break
-    app.path.reverse()
-    for row, col in app.path:
-        if (row != app.goalState[0] or col != app.goalState[1]):
-            app.fill = "black"
-            cell = Cell(app, row, col)
-            app.filledCells.add(cell)        
+    # actual path - from start to goal
+    app.path.reverse()       
 
 def mousePressed(app, event):
     app.removedCell = False
@@ -127,7 +165,7 @@ def mousePressed(app, event):
             if app.goalState == None:
                 app.goalState = row, col
                 cell = Cell(app, row, col)
-                app.filledCells.add(cell)
+                app.keyCells.add(cell)
             elif (row == app.goalState[0] and app.goalState[1]):
                 removeCell(app, row, col)
                 app.goalState = None
@@ -136,7 +174,7 @@ def mousePressed(app, event):
                 app.goalState = None
                 app.goalState = row, col
                 cell = Cell(app, row, col)
-                app.filledCells.add(cell)
+                app.keyCells.add(cell)
 
         elif (app.fill == "green"):
             if ((row, col) in app.walls):
@@ -145,7 +183,7 @@ def mousePressed(app, event):
             else:
                 app.walls.append((row, col))
                 cell = Cell(app, row, col)
-                app.filledCells.add(cell)
+                app.keyCells.add(cell)
 
         
         #for cells that arent red
@@ -153,22 +191,22 @@ def mousePressed(app, event):
             removeCell(app, row, col)
             if (not app.removedCell):
                 cell = Cell(app, row, col)
-                app.filledCells.add(cell)
+                app.keyCells.add(cell)
          
 def assignStartNode(app, row, col):
     cell = Cell(app, row, col)
-    app.filledCells.add(cell)
-    app.startNode = Node((row, col), None, None, cell)
+    app.keyCells.add(cell)
+    app.startNode = Node((row, col), None, None)
 
 def assignGoalNode(app, row, col):
     cell = Cell(app, row, col)
-    app.filledCells.add(cell)
-    app.goalNode = Node((row, col), None, None, cell)
+    app.keyCells.add(cell)
+    app.goalNode = Node((row, col), None, None)
 
 def removeCell(app, removeRow, removeCol):
-    for cell in app.filledCells:
+    for cell in app.keyCells:
         if (cell.row == removeRow and cell.col == removeCol):
-            app.filledCells.remove(cell)
+            app.keyCells.remove(cell)
             app.removedCell = True
             break
 
@@ -216,7 +254,13 @@ def drawButtons(app, canvas):
         cx += buttonWidth
 
 def fillCells(app, canvas):
-    for cell in app.filledCells:
+    for cell in app.exploredCells:
+        x0, y0, x1, y1 = getCellBounds(app, cell.row, cell.col)
+        canvas.create_rectangle(x0, y0, x1, y1, fill=cell.color)
+    for cell in app.pathCells:
+        x0, y0, x1, y1 = getCellBounds(app, cell.row, cell.col)
+        canvas.create_rectangle(x0, y0, x1, y1, fill=cell.color)
+    for cell in app.keyCells:
         x0, y0, x1, y1 = getCellBounds(app, cell.row, cell.col)
         canvas.create_rectangle(x0, y0, x1, y1, fill=cell.color)
 
