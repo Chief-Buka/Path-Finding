@@ -1,4 +1,5 @@
 # Path-Finding-Algorithms
+UPDATED
 This is a project I made implementing different search methods on a grid. The searches are animated as they happen, and the tiles in the final path are displayed after teh search concludes.
 
 Searches include: 
@@ -10,6 +11,4 @@ Searches include:
 - A*
 
 Includes weighted tiles for A*
-
-Updated
         
